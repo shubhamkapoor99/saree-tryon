@@ -572,117 +572,123 @@ async function generate() {
 
   try {
     var hasBlouse = !!blouseBase64;
+    var imagePrompt = '';
 
     // ── STEP 1: Gemini analyzes the images (FREE - text model) ──
     setLoaderStatus('Step 1/2 — Analyzing your images...');
 
-    var analysisInstructions = [
-      'You are an expert fashion analyst. Analyze the provided images and output a SINGLE image-generation prompt.',
-      '',
-      'Image 1 is a SAREE. Image 2 is a PERSON.' + (hasBlouse ? ' Image 3 is a BLOUSE.' : ''),
-      '',
-      'Create a prompt (max 900 characters) for generating a photorealistic image of this EXACT person wearing this EXACT saree in traditional nivi draping style.',
-      '',
-      'Your prompt MUST include:',
-      '1. PERSON: Describe skin tone, approximate age, hair color/style/length, body build, facial features in detail',
-      '2. SAREE: Describe the EXACT colors (be very specific, e.g. "deep maroon with golden zari border"), pattern type, fabric type (silk/cotton/chiffon etc.), border design, pallu design, any embroidery or motifs',
-      hasBlouse ? '3. BLOUSE: Describe exact blouse color, fabric, sleeve style, neckline, any embroidery — worn under the saree' : '3. BLOUSE: Generate a complementary round-neck half-sleeve blouse matching the saree palette',
-      '4. STYLE: Traditional Indian nivi draping, neat front pleats, pallu over left shoulder, natural fabric folds',
-      '5. SETTING: Full-length standing portrait, professional studio lighting, plain white background, photorealistic, no text/watermarks',
-      '',
-      'Output ONLY the prompt text — no explanations, no markdown, no quotes.'
-    ].join('\n');
+    try {
+      var analysisInstructions = [
+        'You are an expert fashion analyst. Analyze the provided images and output a SINGLE image-generation prompt.',
+        '',
+        'Image 1 is a SAREE. Image 2 is a PERSON.' + (hasBlouse ? ' Image 3 is a BLOUSE.' : ''),
+        '',
+        'Create a prompt (max 900 characters) for generating a photorealistic image of this EXACT person wearing this EXACT saree in traditional nivi draping style.',
+        '',
+        'Your prompt MUST include:',
+        '1. PERSON: Describe skin tone, approximate age, hair color/style/length, body build, facial features in detail',
+        '2. SAREE: Describe the EXACT colors (be very specific, e.g. "deep maroon with golden zari border"), pattern type, fabric type (silk/cotton/chiffon etc.), border design, pallu design, any embroidery or motifs',
+        hasBlouse ? '3. BLOUSE: Describe exact blouse color, fabric, sleeve style, neckline, any embroidery — worn under the saree' : '3. BLOUSE: Generate a complementary round-neck half-sleeve blouse matching the saree palette',
+        '4. STYLE: Traditional Indian nivi draping, neat front pleats, pallu over left shoulder, natural fabric folds',
+        '5. SETTING: Full-length standing portrait, professional studio lighting, plain white background, photorealistic, no text/watermarks',
+        '',
+        'Output ONLY the prompt text — no explanations, no markdown, no quotes.'
+      ].join('\n');
 
-    var geminiParts = [
-      { text: analysisInstructions },
-      { inline_data: { mime_type: 'image/jpeg', data: sareeBase64 } },
-      { inline_data: { mime_type: 'image/jpeg', data: personBase64 } }
-    ];
-    if (hasBlouse) {
-      geminiParts.push({ inline_data: { mime_type: 'image/jpeg', data: blouseBase64 } });
-    }
+      var geminiParts = [
+        { text: analysisInstructions },
+        { inline_data: { mime_type: 'image/jpeg', data: sareeBase64 } },
+        { inline_data: { mime_type: 'image/jpeg', data: personBase64 } }
+      ];
+      if (hasBlouse) {
+        geminiParts.push({ inline_data: { mime_type: 'image/jpeg', data: blouseBase64 } });
+      }
 
-    var geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + geminiKey;
+      var geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + geminiKey;
 
-    var geminiResp = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: geminiParts }],
-        generationConfig: { maxOutputTokens: 400 }
-      })
-    });
+      var geminiResp = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: geminiParts }],
+          generationConfig: { maxOutputTokens: 400 }
+        })
+      });
 
-    var geminiData = await geminiResp.json();
+      var geminiData = await geminiResp.json();
 
-    if (!geminiResp.ok) {
-      var gErr = (geminiData.error && geminiData.error.message) ? geminiData.error.message : 'Gemini analysis failed (status ' + geminiResp.status + ')';
-      throw new Error(gErr);
-    }
+      if (!geminiResp.ok) {
+        var gErr = (geminiData.error && geminiData.error.message) ? geminiData.error.message : 'status ' + geminiResp.status;
+        throw new Error(gErr);
+      }
 
-    if (!geminiData.candidates || !geminiData.candidates[0] || !geminiData.candidates[0].content) {
-      throw new Error('Gemini returned no analysis. Try again.');
-    }
+      if (!geminiData.candidates || !geminiData.candidates[0] || !geminiData.candidates[0].content) {
+        throw new Error('No analysis returned');
+      }
 
-    var imagePrompt = geminiData.candidates[0].content.parts[0].text.trim();
-    if (imagePrompt.length > 1500) {
-      imagePrompt = imagePrompt.substring(0, 1500);
+      imagePrompt = geminiData.candidates[0].content.parts[0].text.trim();
+      if (imagePrompt.length > 1500) imagePrompt = imagePrompt.substring(0, 1500);
+
+    } catch (stepErr) {
+      throw new Error('[Step 1 - Gemini] ' + stepErr.message);
     }
 
     // ── STEP 2: HuggingFace generates the image (FREE) ──
     setLoaderStatus('Step 2/2 — Creating your look...');
 
-    var hfToken = getHFToken();
-    if (!hfToken) {
-      hfToken = promptForHFToken();
-      if (!hfToken) throw new Error('HuggingFace token is required for image generation.');
-    }
-
-    var hfModel = (imgModel === 'sdxl')
-      ? 'stabilityai/stable-diffusion-xl-base-1.0'
-      : 'black-forest-labs/FLUX.1-schnell';
-
-    var hfResp = await fetch('https://api-inference.huggingface.co/models/' + hfModel, {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + hfToken,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ inputs: imagePrompt })
-    });
-
-    clearInterval(timerInterval);
-
-    if (!hfResp.ok) {
-      var hfErr = '';
-      try {
-        var hfErrData = await hfResp.json();
-        hfErr = hfErrData.error || JSON.stringify(hfErrData);
-      } catch(e) { hfErr = 'status ' + hfResp.status; }
-      if (hfResp.status === 401 || hfResp.status === 403) {
-        localStorage.removeItem('sts_hf_token');
-        throw new Error('Invalid HuggingFace token. Tap Generate to enter a new one.');
+    try {
+      var hfToken = getHFToken();
+      if (!hfToken) {
+        hfToken = promptForHFToken();
+        if (!hfToken) throw new Error('Token required. Sign up free at huggingface.co');
       }
-      if (hfErr.indexOf('loading') >= 0 || hfErr.indexOf('currently loading') >= 0) {
-        throw new Error('Model is loading — please wait 30 seconds and try again.');
+
+      var hfModel = (imgModel === 'sdxl')
+        ? 'stabilityai/stable-diffusion-xl-base-1.0'
+        : 'black-forest-labs/FLUX.1-schnell';
+
+      var hfResp = await fetch('https://api-inference.huggingface.co/models/' + hfModel, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + hfToken },
+        body: JSON.stringify({ inputs: imagePrompt })
+      });
+
+      if (!hfResp.ok) {
+        var hfErr = '';
+        try {
+          var hfErrData = await hfResp.json();
+          hfErr = hfErrData.error || JSON.stringify(hfErrData);
+        } catch(e) { hfErr = 'status ' + hfResp.status; }
+        if (hfResp.status === 401 || hfResp.status === 403) {
+          localStorage.removeItem('sts_hf_token');
+          throw new Error('Invalid token — tap Generate to re-enter');
+        }
+        if (hfErr.indexOf('loading') >= 0 || hfErr.indexOf('currently loading') >= 0) {
+          throw new Error('Model is warming up — wait 30 seconds and retry');
+        }
+        throw new Error(hfErr);
       }
-      throw new Error('Image generation failed: ' + hfErr);
+
+      var imgBlob = await hfResp.blob();
+      if (!imgBlob || imgBlob.size < 1000) {
+        throw new Error('Empty result — try again');
+      }
+
+      clearInterval(timerInterval);
+
+      resultMime = imgBlob.type || 'image/jpeg';
+      resultImgUrl = URL.createObjectURL(imgBlob);
+      document.getElementById('resultImg').src = resultImgUrl;
+
+      resultBase64 = await new Promise(function(resolve) {
+        var reader = new FileReader();
+        reader.onloadend = function() { resolve(reader.result.split(',')[1]); };
+        reader.readAsDataURL(imgBlob);
+      });
+
+    } catch (stepErr) {
+      throw new Error('[Step 2 - HuggingFace] ' + stepErr.message);
     }
-
-    var imgBlob = await hfResp.blob();
-    if (!imgBlob || imgBlob.size < 1000) {
-      throw new Error('Image generation returned empty result. Try again.');
-    }
-
-    resultMime = imgBlob.type || 'image/jpeg';
-    resultImgUrl = URL.createObjectURL(imgBlob);
-    document.getElementById('resultImg').src = resultImgUrl;
-
-    resultBase64 = await new Promise(function(resolve) {
-      var reader = new FileReader();
-      reader.onloadend = function() { resolve(reader.result.split(',')[1]); };
-      reader.readAsDataURL(imgBlob);
-    });
 
     var descEl = document.getElementById('resultText');
     descEl.textContent = 'AI Prompt: ' + imagePrompt;
@@ -695,19 +701,33 @@ async function generate() {
   } catch (err) {
     clearInterval(timerInterval);
     console.error(err);
-    var msg = err.message;
+    var msg = err.message || String(err);
+    var isStep1 = msg.indexOf('[Step 1') >= 0;
+    var isStep2 = msg.indexOf('[Step 2') >= 0;
+    var isNetwork = msg.indexOf('Load failed') >= 0 || msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0;
+
+    if (isNetwork && isStep1) {
+      msg += '\n\nGemini API call failed. Check your internet connection.';
+    } else if (isNetwork && isStep2) {
+      msg += '\n\nHuggingFace API call failed. Check your internet connection.';
+    } else if (isNetwork) {
+      msg += '\n\nNetwork error — check internet connection.';
+    }
+
     document.getElementById('errorDetail').textContent = msg;
     document.getElementById('errorDetail').classList.add('show');
-    if (msg.indexOf('Load failed') >= 0 || msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
-      document.getElementById('errorDetail').textContent = msg + ' — Check internet connection and ensure app is hosted via https.';
-      showToast('Network error — check connection', 'error');
-    } else if (msg.indexOf('Invalid HuggingFace') >= 0) {
-      showToast('Bad HF token — tap Generate to re-enter', 'error');
-    } else if (msg.indexOf('API key') >= 0 || msg.indexOf('API_KEY') >= 0 || msg.indexOf('Gemini') >= 0) {
+
+    if (isStep1 && (msg.indexOf('API key') >= 0 || msg.indexOf('API_KEY') >= 0 || msg.indexOf('PERMISSION_DENIED') >= 0)) {
       localStorage.removeItem('sts_gemini_key');
-      showToast('Invalid Gemini key — tap Generate to re-enter', 'error');
+      showToast('Bad Gemini key — tap Generate to re-enter', 'error');
+    } else if (isStep2 && msg.indexOf('Invalid token') >= 0) {
+      showToast('Bad HF token — tap Generate to re-enter', 'error');
     } else if (msg.indexOf('quota') >= 0 || msg.indexOf('Quota') >= 0) {
-      showToast('Gemini quota hit — wait a minute and retry', 'error');
+      showToast('Quota exceeded — wait and retry', 'error');
+    } else if (isStep1) {
+      showToast('Step 1 failed — see details below', 'error');
+    } else if (isStep2) {
+      showToast('Step 2 failed — see details below', 'error');
     } else {
       showToast('Generation failed — see details below', 'error');
     }
