@@ -391,13 +391,6 @@ input[type="file"]{display:none}
     <option value="1024x1024">Square 1:1</option>
     <option value="1024x768">Landscape 4:3</option>
   </select>
-  <label style="margin-top:6px">Pollinations API Key <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
-  <input type="text" id="pollKeyInput" placeholder="pk_... (get free at enter.pollinations.ai)"
-    style="width:100%;padding:12px;border:2px solid #E8E0D8;border-radius:12px;font-size:0.82rem;
-    margin-bottom:6px;background:var(--card-alt);font-family:inherit;color:var(--text)"
-    onchange="saveSetting('pollkey',this.value.trim())">
-  <p style="font-size:0.65rem;color:var(--text-muted);margin-bottom:14px;line-height:1.5">
-    Works without a key. Add one only if you hit rate limits.</p>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -479,6 +472,8 @@ function buildPrompt(hasBlouse) {
 
   return lines.join('\n');
 }
+
+var POLL_KEY = 'sk_l09ZMtrLFwjwH2T9CVq6senkDlxs3BpZ';
 
 var sareeBase64 = null;
 var personBase64 = null;
@@ -629,11 +624,7 @@ async function generate() {
       formData.append('image', base64ToBlob(blouseBase64, 'image/jpeg'), 'blouse.jpg');
     }
 
-    var headers = {};
-    var apiKey = getSetting('pollkey', '');
-    if (apiKey) {
-      headers['Authorization'] = 'Bearer ' + apiKey;
-    }
+    var headers = { 'Authorization': 'Bearer ' + POLL_KEY };
 
     var response = await fetch('https://gen.pollinations.ai/v1/images/edits', {
       method: 'POST',
@@ -757,7 +748,6 @@ function toggleSettings() {
   if (panel.classList.contains('open')) {
     document.getElementById('modelSelect').value = getSetting('model', 'gptimage');
     document.getElementById('aspectSelect').value = getSetting('aspect', '768x1024');
-    document.getElementById('pollKeyInput').value = getSetting('pollkey', '');
   }
 }
 
