@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#4A0E2B">
+<title>Saree Try-On Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --pri:#6B1D3E;--pri-dark:#4A0E2B;--pri-light:#8B3A5E;
+  --gold:#C9A84C;--gold-light:#E8D5A0;--gold-glow:rgba(201,168,76,0.25);
+  --bg:#F7F2ED;--card:#FFFFFF;--card-alt:#FDFAF6;
+  --text:#1E1118;--text-sec:#6E5B64;--text-muted:#A8949C;
+  --success:#1B7A3D;--success-bg:#E8F5EC;
+  --error:#B71C1C;--error-bg:#FDEAEA;
+  --purple:#7C3AED;--purple-bg:#F3EEFF;
+  --r:20px;
+  --shadow-sm:0 2px 8px rgba(74,14,43,0.06);
+  --shadow-md:0 8px 30px rgba(74,14,43,0.1);
+  --shadow-lg:0 16px 48px rgba(74,14,43,0.14);
+  --shadow-gold:0 8px 32px rgba(201,168,76,0.25);
+}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;
+  background:var(--bg);color:var(--text);min-height:100dvh;overflow-x:hidden;
+  padding-bottom:env(safe-area-inset-bottom,20px)}
+
+/* ═══════ HEADER ═══════ */
+header{
+  background:linear-gradient(160deg,var(--pri-dark) 0%,var(--pri) 40%,var(--pri-light) 100%);
+  color:#fff;padding:28px 20px 22px;text-align:center;
+  position:sticky;top:0;z-index:100;
+  box-shadow:0 4px 24px rgba(74,14,43,0.3)}
+header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.header-title{font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;
+  letter-spacing:0.3px;line-height:1.2}
+.header-title span{color:var(--gold-light)}
+.header-sub{font-size:0.72rem;opacity:0.7;margin-top:5px;font-weight:400;letter-spacing:0.5px}
+
+/* ═══════ CONTAINER ═══════ */
+.container{padding:20px 16px 100px;max-width:480px;margin:0 auto}
+
+/* ═══════ STEP LABELS ═══════ */
+.step-label{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.step-dot{width:26px;height:26px;border-radius:50%;
+  background:linear-gradient(135deg,var(--pri),var(--pri-light));
+  color:#fff;font-size:0.7rem;font-weight:700;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  box-shadow:0 3px 10px rgba(107,29,62,0.3)}
+.step-text{font-size:0.82rem;font-weight:600;color:var(--text)}
+.step-text .muted{color:var(--text-muted);font-weight:400;font-size:0.72rem}
+
+/* ═══════ UPLOAD ROW ═══════ */
+.upload-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.upload-card{background:var(--card);border-radius:var(--r);padding:16px 12px 12px;
+  box-shadow:var(--shadow-md);position:relative;overflow:hidden;
+  transition:transform 0.2s,box-shadow 0.2s}
+.upload-card:active{transform:scale(0.98)}
+.upload-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--gold),var(--gold-light),var(--gold))}
+.upload-card h3{font-size:0.75rem;font-weight:700;margin-bottom:8px;text-align:center;
+  color:var(--pri);text-transform:uppercase;letter-spacing:1px}
+
+.upload-zone{border:2px dashed var(--gold);border-radius:14px;padding:20px 8px;
+  text-align:center;cursor:pointer;transition:all 0.3s ease;
+  background:linear-gradient(180deg,var(--card-alt),#FFF8F0);
+  min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative}
+.upload-zone::after{content:'';position:absolute;inset:3px;border-radius:12px;
+  border:1px solid rgba(201,168,76,0.15);pointer-events:none}
+.upload-zone:active{transform:scale(0.96);border-color:var(--pri);
+  background:linear-gradient(180deg,#FFF0E8,#FFE8D5)}
+.upload-zone.has-image{border-style:solid;border-color:var(--success);
+  background:var(--success-bg);min-height:auto;padding:8px}
+.upload-zone.has-image::after{border-color:rgba(27,122,61,0.15)}
+.upload-zone svg{width:34px;height:34px;fill:var(--gold);margin-bottom:8px;
+  filter:drop-shadow(0 2px 4px rgba(201,168,76,0.3))}
+.upload-zone p{font-size:0.78rem;color:var(--text-sec);font-weight:500}
+.upload-zone .hint{font-size:0.65rem;margin-top:3px;color:var(--text-muted);font-weight:400}
+.upload-zone.has-image svg,.upload-zone.has-image p,.upload-zone.has-image .hint{display:none}
+
+.preview-img{width:100%;max-height:200px;object-fit:contain;border-radius:10px;display:none}
+.preview-img.show{display:block}
+.change-label{font-size:0.65rem;color:var(--success);text-align:center;margin-top:5px;
+  display:none;font-weight:600;letter-spacing:0.3px}
+.change-label.show{display:block}
+
+input[type="file"]{display:none}
+
+/* ═══════ OPTIONAL BLOUSE ═══════ */
+.optional-card{background:var(--card);border-radius:var(--r);padding:16px;
+  margin-bottom:20px;box-shadow:var(--shadow-md);position:relative;overflow:hidden}
+.optional-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--purple),#A78BFA,var(--purple))}
+.optional-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.optional-header h3{font-size:0.78rem;font-weight:700;color:var(--pri);display:flex;
+  align-items:center;gap:7px;text-transform:uppercase;letter-spacing:0.8px}
+.opt-tag{font-size:0.58rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;
+  background:var(--purple-bg);color:var(--purple);padding:3px 9px;border-radius:20px}
+.blouse-row{display:flex;gap:10px}
+.blouse-upload{flex:1}
+.blouse-upload .upload-zone{min-height:80px;padding:14px 8px}
+.blouse-upload .upload-zone svg{width:28px;height:28px}
+.blouse-upload .preview-img{max-height:110px}
+.blouse-remove{padding:8px 14px;background:var(--error-bg);color:var(--error);border:none;
+  border-radius:10px;font-size:0.72rem;font-weight:700;cursor:pointer;display:none;
+  white-space:nowrap;letter-spacing:0.3px}
+.blouse-remove.show{display:block}
+
+/* ═══════ GENERATE AREA ═══════ */
+.generate-area{margin-bottom:20px}
+
+.btn-generate{
+  width:100%;padding:20px;border:none;border-radius:var(--r);font-size:1.1rem;
+  font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;
+  color:#fff;letter-spacing:0.4px;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,var(--pri),var(--pri-dark));
+  box-shadow:var(--shadow-lg);
+  transition:transform 0.15s,box-shadow 0.15s}
+.btn-generate::before{content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,transparent,rgba(201,168,76,0.15),transparent);
+  opacity:0;transition:opacity 0.3s}
+.btn-generate:not(:disabled):active{transform:scale(0.97);
+  box-shadow:0 4px 16px rgba(74,14,43,0.2)}
+.btn-generate:not(:disabled):active::before{opacity:1}
+.btn-generate:disabled{opacity:0.35;cursor:not-allowed;transform:none}
+.btn-generate .icon{width:22px;height:22px;fill:currentColor;flex-shrink:0}
+
+/* ═══════ LOADER ═══════ */
+.loader{display:none;text-align:center;padding:36px 16px}
+.loader.show{display:block;animation:fadeIn 0.3s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+.pulse-ring{width:64px;height:64px;margin:0 auto 20px;position:relative}
+.pulse-ring::before,.pulse-ring::after{content:'';position:absolute;inset:0;
+  border-radius:50%;border:3px solid var(--pri);opacity:0}
+.pulse-ring::before{animation:pulse 1.8s ease-out infinite}
+.pulse-ring::after{animation:pulse 1.8s ease-out 0.6s infinite}
+@keyframes pulse{0%{transform:scale(0.5);opacity:0.8}100%{transform:scale(1.4);opacity:0}}
+.pulse-center{width:42px;height:42px;border-radius:50%;
+  background:linear-gradient(135deg,var(--pri),var(--gold));
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 20px rgba(107,29,62,0.3)}
+.pulse-center svg{width:20px;height:20px;fill:#fff;animation:spin 2s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.loader-title{font-size:0.95rem;font-weight:700;color:var(--text);margin-bottom:4px}
+.loader-timer{font-size:0.8rem;color:var(--gold);font-weight:600}
+.loader-tip{font-size:0.7rem;color:var(--text-muted);margin-top:14px;
+  padding:10px 14px;background:var(--card-alt);border-radius:12px;line-height:1.6}
+
+/* ═══════ TIPS ═══════ */
+.tips-bar{margin-top:14px;padding:12px 14px;border-radius:14px;
+  background:linear-gradient(135deg,var(--card-alt),#FFF5EB);
+  border:1px solid rgba(201,168,76,0.15);font-size:0.72rem;
+  color:var(--text-sec);line-height:1.6}
+.tips-bar strong{color:var(--pri);font-weight:700}
+
+/* ═══════ ERROR ═══════ */
+.error-detail{font-size:0.75rem;color:var(--error);margin-top:12px;padding:12px;
+  background:var(--error-bg);border-radius:12px;line-height:1.5;display:none;
+  word-break:break-word;border:1px solid rgba(183,28,28,0.1)}
+.error-detail.show{display:block;animation:fadeIn 0.3s ease}
+
+/* ═══════ RESULT ═══════ */
+.result-card{display:none;background:var(--card);border-radius:var(--r);
+  padding:20px 16px;margin-bottom:20px;box-shadow:var(--shadow-lg);
+  position:relative;overflow:hidden}
+.result-card.show{display:block;animation:slideUp 0.5s cubic-bezier(0.22,1,0.36,1)}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:none}}
+.result-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,var(--gold),var(--success),var(--gold))}
+.result-badge{display:inline-flex;align-items:center;gap:6px;
+  background:var(--success-bg);color:var(--success);
+  padding:6px 14px;border-radius:20px;font-size:0.75rem;font-weight:700;
+  margin:0 auto 14px;letter-spacing:0.3px}
+.result-badge svg{width:16px;height:16px;fill:var(--success)}
+.result-wrap{text-align:center}
+.result-img{width:100%;border-radius:14px;box-shadow:var(--shadow-md)}
+.result-text{font-size:0.78rem;color:var(--text-sec);margin-top:12px;padding:10px;
+  background:var(--card-alt);border-radius:10px;line-height:1.5;display:none;text-align:left}
+.result-text.show{display:block}
+.result-actions{display:flex;gap:10px;margin-top:16px}
+
+.btn-action{flex:1;padding:13px 8px;border:none;border-radius:14px;font-size:0.8rem;
+  font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  gap:6px;transition:transform 0.15s,box-shadow 0.15s;letter-spacing:0.2px}
+.btn-action:active{transform:scale(0.96)}
+.btn-action svg{width:17px;height:17px;fill:currentColor;flex-shrink:0}
+.btn-save{background:linear-gradient(135deg,var(--gold),#B8942F);color:#fff;
+  box-shadow:var(--shadow-gold)}
+.btn-share{background:var(--card);color:var(--pri);border:2px solid var(--pri)}
+.btn-retry{background:var(--card-alt);color:var(--text-sec);border:1.5px solid #ddd}
+
+/* ═══════ SETTINGS ═══════ */
+.fab{position:fixed;bottom:24px;right:16px;width:50px;height:50px;border-radius:50%;
+  background:linear-gradient(135deg,var(--pri),var(--pri-dark));
+  color:#fff;border:none;font-size:1.15rem;cursor:pointer;z-index:50;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 6px 24px rgba(74,14,43,0.35);
+  transition:transform 0.2s}
+.fab:active{transform:scale(0.92)}
+
+.panel-overlay{position:fixed;inset:0;background:rgba(30,17,24,0.45);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  z-index:150;display:none;opacity:0;transition:opacity 0.3s}
+.panel-overlay.open{display:block;opacity:1}
+
+.panel{position:fixed;bottom:0;left:0;right:0;background:var(--card);
+  border-radius:var(--r) var(--r) 0 0;padding:8px 20px 28px;
+  box-shadow:0 -8px 40px rgba(0,0,0,0.15);transform:translateY(100%);
+  transition:transform 0.35s cubic-bezier(0.22,1,0.36,1);z-index:200;
+  max-height:65vh;overflow-y:auto}
+.panel.open{transform:translateY(0)}
+.panel-handle{width:36px;height:4px;border-radius:4px;background:#DDD;
+  margin:0 auto 16px}
+.panel h3{font-size:1rem;font-weight:700;margin-bottom:16px;display:flex;
+  align-items:center;justify-content:space-between}
+.panel label{display:block;font-size:0.78rem;font-weight:600;
+  margin-bottom:5px;color:var(--text-sec);letter-spacing:0.3px}
+.panel select{width:100%;padding:12px;border:2px solid #E8E0D8;border-radius:12px;
+  font-size:0.85rem;margin-bottom:14px;background:var(--card-alt);
+  font-family:inherit;color:var(--text);appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%236E5B64' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center}
+.panel select:focus{outline:none;border-color:var(--pri)}
+
+/* ═══════ TOAST ═══════ */
+.toast{position:fixed;top:76px;left:50%;transform:translateX(-50%) translateY(-120px);
+  background:var(--text);color:#fff;padding:11px 22px;border-radius:30px;
+  font-size:0.8rem;font-weight:600;z-index:999;transition:transform 0.35s cubic-bezier(0.22,1,0.36,1);
+  box-shadow:0 8px 30px rgba(0,0,0,0.25);max-width:88%;text-align:center;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.success{background:var(--success)}
+.toast.error{background:var(--error)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">Saree Try-On <span>Studio</span></div>
+  <div class="header-sub">AI-powered virtual draping for your shop</div>
+</header>
+
+<div class="container">
+
+  <!-- STEP 1 -->
+  <div class="step-label">
+    <div class="step-dot">1</div>
+    <div class="step-text">Upload Photos <span class="muted">&mdash; saree &amp; person</span></div>
+  </div>
+
+  <div class="upload-row">
+    <div class="upload-card">
+      <h3>Saree</h3>
+      <div class="upload-zone" id="sareeZone" onclick="document.getElementById('sareeInput').click()">
+        <svg viewBox="0 0 24 24"><path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/></svg>
+        <p>Tap to upload</p>
+        <p class="hint">Camera or Gallery</p>
+        <img class="preview-img" id="sareeImg">
+      </div>
+      <p class="change-label" id="sareeChangeText">Tap to change</p>
+      <input type="file" id="sareeInput" accept="image/*" onchange="handleImage(this,'saree')">
+    </div>
+    <div class="upload-card">
+      <h3>Person</h3>
+      <div class="upload-zone" id="personZone" onclick="document.getElementById('personInput').click()">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        <p>Tap to upload</p>
+        <p class="hint">Full-length best</p>
+        <img class="preview-img" id="personImg">
+      </div>
+      <p class="change-label" id="personChangeText">Tap to change</p>
+      <input type="file" id="personInput" accept="image/*" onchange="handleImage(this,'person')">
+    </div>
+  </div>
+
+  <!-- OPTIONAL BLOUSE -->
+  <div class="optional-card">
+    <div class="optional-header">
+      <h3>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--purple)"><path d="M21.6 18.2L13 11.75v-.91a3.496 3.496 0 0 0-.18-6.75 3.51 3.51 0 0 0-3.32 3.45 3.5 3.5 0 0 0 1.5 2.87v.91L2.4 18.2c-.77.58-.36 1.8.6 1.8h18c.96 0 1.37-1.22.6-1.8z"/></svg>
+        Blouse
+        <span class="opt-tag">Optional</span>
+      </h3>
+      <button class="blouse-remove" id="blouseRemoveBtn" onclick="removeImage('blouse')">Remove</button>
+    </div>
+    <div class="blouse-row">
+      <div class="blouse-upload">
+        <div class="upload-zone" id="blouseZone" onclick="document.getElementById('blouseInput').click()">
+          <svg viewBox="0 0 24 24"><path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/></svg>
+          <p>Tap to add blouse</p>
+          <p class="hint">AI auto-picks if skipped</p>
+          <img class="preview-img" id="blouseImg">
+        </div>
+      </div>
+    </div>
+    <input type="file" id="blouseInput" accept="image/*" onchange="handleImage(this,'blouse')">
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step-label">
+    <div class="step-dot">2</div>
+    <div class="step-text">Generate <span class="muted">&mdash; one tap magic</span></div>
+  </div>
+
+  <div class="generate-area">
+    <button class="btn-generate" id="generateBtn" onclick="generate()" disabled>
+      <svg class="icon" viewBox="0 0 24 24"><path d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29a.9959.9959 0 0 0-1.41 0L1.29 18.96c-.39.39-.39 1.02 0 1.41l2.34 2.34c.39.39 1.02.39 1.41 0L16.7 11.05c.39-.39.39-1.02 0-1.41l-2.33-2.35z"/></svg>
+      Generate Draping
+    </button>
+
+    <div class="loader" id="loader">
+      <div class="pulse-ring">
+        <div class="pulse-center">
+          <svg viewBox="0 0 24 24"><path d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5z"/></svg>
+        </div>
+      </div>
+      <p class="loader-title">Creating your look...</p>
+      <p class="loader-timer" id="timerText">This takes 15-30 seconds</p>
+      <p class="loader-tip">AI is analyzing the saree design, colors, and the person's features to create a realistic draping.</p>
+    </div>
+
+    <div class="error-detail" id="errorDetail"></div>
+
+    <div class="tips-bar" id="tipsBox">
+      <strong>Pro tips:</strong> Flat saree photo with clear pattern &bull;
+      Full-length, front-facing person &bull; Good lighting &bull; Plain backgrounds
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="result-card" id="resultCard">
+    <div class="result-wrap">
+      <div class="result-badge">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        Draping Ready
+      </div>
+      <img class="result-img" id="resultImg">
+      <div class="result-text" id="resultText"></div>
+    </div>
+    <div class="result-actions">
+      <button class="btn-action btn-save" onclick="downloadResult()">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        Save
+      </button>
+      <button class="btn-action btn-share" onclick="shareResult()">
+        <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
+        Share
+      </button>
+      <button class="btn-action btn-retry" onclick="generateAgain()">
+        <svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        Retry
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- SETTINGS FAB -->
+<button class="fab" onclick="toggleSettings()">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+</button>
+<div class="panel-overlay" id="settingsOverlay" onclick="toggleSettings()"></div>
+<div class="panel" id="settingsPanel">
+  <div class="panel-handle"></div>
+  <h3>
+    Settings
+    <button onclick="toggleSettings()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted);padding:4px">&times;</button>
+  </h3>
+  <label>Gemini Model</label>
+  <select id="modelSelect" onchange="saveSetting('model',this.value)">
+    <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Free)</option>
+    <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image</option>
+    <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash Image (Latest)</option>
+  </select>
+  <label>Aspect Ratio</label>
+  <select id="aspectSelect" onchange="saveSetting('aspect',this.value)">
+    <option value="3:4">Portrait 3:4 (Recommended)</option>
+    <option value="2:3">Portrait 2:3 (Taller)</option>
+    <option value="9:16">Portrait 9:16 (Phone Screen)</option>
+    <option value="1:1">Square 1:1</option>
+    <option value="4:3">Landscape 4:3</option>
+  </select>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function buildPrompt(hasBlouse) {
+  var lines = [];
+
+  lines.push('STRICT IDENTITY-PRESERVING VIRTUAL TRY-ON TASK');
+  lines.push('==============================================');
+  lines.push('');
+  if (hasBlouse) {
+    lines.push('I am providing THREE reference images. You MUST treat them as absolute ground truth.');
+    lines.push('');
+    lines.push('IMAGE 1 (first image): THE SAREE — the exact garment to be draped.');
+    lines.push('IMAGE 2 (second image): THE PERSON — the exact human who must appear in the output.');
+    lines.push('IMAGE 3 (third image): THE BLOUSE — the exact blouse to be worn under the saree.');
+  } else {
+    lines.push('I am providing TWO reference images. You MUST treat them as absolute ground truth.');
+    lines.push('');
+    lines.push('IMAGE 1 (first image): THE SAREE — the exact garment to be draped.');
+    lines.push('IMAGE 2 (second image): THE PERSON — the exact human who must appear in the output.');
+  }
+
+  lines.push('');
+  lines.push('======== PERSON FIDELITY (ZERO DEVIATION ALLOWED) ========');
+  lines.push('The output image MUST be the SAME person from Image 2. This is NOT a "similar looking" person — it must be IDENTICAL:');
+  lines.push('- FACE: Exact same facial structure, jawline, cheekbones, nose shape, eye shape, eye color, eyebrow shape, lip shape, forehead, chin');
+  lines.push('- SKIN: Exact same skin tone, complexion, and skin texture — no lightening, darkening, or smoothing');
+  lines.push('- HAIR: Exact same hairstyle, hair color, hair length, parting, and hair texture');
+  lines.push('- BODY: Exact same body shape, height, proportions, shoulder width, and build');
+  lines.push('- EXPRESSION: Maintain a natural, pleasant expression consistent with the reference');
+  lines.push('- AGE: Same apparent age — do not make the person look younger or older');
+  lines.push('If you cannot perfectly reproduce the person, prioritize the face above all else. The face MUST be recognizable as the same individual.');
+
+  lines.push('');
+  lines.push('======== SAREE DESIGN FIDELITY (ZERO DEVIATION ALLOWED) ========');
+  lines.push('The saree in the output MUST be an EXACT replica of Image 1. This is NOT an "inspired by" design — it must be IDENTICAL:');
+  lines.push('- COLOR: Exact same base color, shade, and tone — no color shifting');
+  lines.push('- PATTERN: Exact same pattern layout, motifs, repeat pattern, and spacing');
+  lines.push('- BORDER: Exact same border design, border width, border color, and border pattern');
+  lines.push('- EMBROIDERY/ZARI: Exact same embroidery motifs, zari work, sequin placement, and thread work');
+  lines.push('- FABRIC TEXTURE: Preserve the fabric appearance — silk sheen, cotton matte, chiffon transparency, georgette flow, etc.');
+  lines.push('- PALLU DESIGN: If the pallu (end piece) has a different design from the body, reproduce that distinction exactly');
+  lines.push('Do NOT simplify, generalize, or reinterpret any design element. Every motif, every color band, every border detail must match.');
+
+  lines.push('');
+  lines.push('======== DRAPING STYLE ========');
+  lines.push('- Traditional Indian "nivi" style draping');
+  lines.push('- Neat pleats (5-7 pleats) at the front, tucked into the waist at center');
+  lines.push('- Pallu (loose end) draped over the LEFT shoulder, falling gracefully behind');
+  lines.push('- Clean tuck and fall along the right side of the legs');
+  lines.push('- The saree should show natural fabric drape, folds, and gravity — not stiff or flat');
+
+  lines.push('');
+  lines.push('======== LAYERING ORDER ========');
+  if (hasBlouse) {
+    lines.push('- The person wears the EXACT blouse from Image 3 underneath');
+    lines.push('- The saree from Image 1 is draped ON TOP of the blouse');
+    lines.push('- Blouse sleeves, neckline, and any visible back portion must match Image 3 exactly');
+    lines.push('- Reproduce the blouse EXACTLY: its color, fabric, embroidery, sleeve length, sleeve style, neckline cut, and any design details');
+    lines.push('- Where the saree does not cover (upper chest, arms, midriff if applicable), the blouse must be clearly visible');
+  } else {
+    lines.push('- Auto-generate a complementary blouse that matches the saree color palette');
+    lines.push('- The blouse style should be a classic round-neck or V-neck with half sleeves');
+    lines.push('- The saree is draped on top of the blouse');
+  }
+
+  lines.push('');
+  lines.push('======== OUTPUT REQUIREMENTS ========');
+  lines.push('- Full-length standing portrait showing head to toe');
+  lines.push('- Slight three-quarter angle pose (natural, not stiff)');
+  lines.push('- Professional soft studio lighting with no harsh shadows');
+  lines.push('- Clean, neutral, solid-color background (white or light gray)');
+  lines.push('- The image must look like a REAL photograph from a professional clothing store photoshoot');
+  lines.push('- Resolution should be sharp and detailed');
+  lines.push('- Absolutely NO watermarks, NO text, NO logos, NO borders, NO frames');
+  lines.push('- NO artistic filters, NO cartoon style, NO painting style — strictly photorealistic');
+
+  return lines.join('\n');
+}
+
+var API_KEY = 'AIzaSyCpPBmSGBOGqlnvcGolrwnH2XwosC2KbbA';
+
+var sareeBase64 = null;
+var personBase64 = null;
+var blouseBase64 = null;
+var resultBase64 = null;
+var resultMime = 'image/png';
+
+function getSetting(key, fallback) {
+  return localStorage.getItem('sts_' + key) || fallback;
+}
+function saveSetting(key, val) {
+  localStorage.setItem('sts_' + key, val);
+}
+
+function compressImage(file, maxDim) {
+  maxDim = maxDim || 1024;
+  return new Promise(function(resolve) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var img = new Image();
+      img.onload = function() {
+        var canvas = document.createElement('canvas');
+        var w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          var scale = maxDim / Math.max(w, h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.80));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function dataUrlToBase64(dataUrl) {
+  return dataUrl.split(',')[1];
+}
+
+async function handleImage(input, type) {
+  var file = input.files[0];
+  if (!file) return;
+  showToast('Processing...');
+  var dataUrl = await compressImage(file);
+
+  if (type === 'saree') {
+    sareeBase64 = dataUrlToBase64(dataUrl);
+    document.getElementById('sareeImg').src = dataUrl;
+    document.getElementById('sareeImg').classList.add('show');
+    document.getElementById('sareeZone').classList.add('has-image');
+    document.getElementById('sareeChangeText').classList.add('show');
+  } else if (type === 'person') {
+    personBase64 = dataUrlToBase64(dataUrl);
+    document.getElementById('personImg').src = dataUrl;
+    document.getElementById('personImg').classList.add('show');
+    document.getElementById('personZone').classList.add('has-image');
+    document.getElementById('personChangeText').classList.add('show');
+  } else if (type === 'blouse') {
+    blouseBase64 = dataUrlToBase64(dataUrl);
+    document.getElementById('blouseImg').src = dataUrl;
+    document.getElementById('blouseImg').classList.add('show');
+    document.getElementById('blouseZone').classList.add('has-image');
+    document.getElementById('blouseRemoveBtn').classList.add('show');
+  }
+  updateGenerateBtn();
+  showToast('Image loaded!', 'success');
+}
+
+function removeImage(type) {
+  if (type === 'blouse') {
+    blouseBase64 = null;
+    document.getElementById('blouseInput').value = '';
+    document.getElementById('blouseImg').classList.remove('show');
+    document.getElementById('blouseZone').classList.remove('has-image');
+    document.getElementById('blouseRemoveBtn').classList.remove('show');
+    showToast('Blouse removed', 'success');
+  }
+}
+
+function updateGenerateBtn() {
+  document.getElementById('generateBtn').disabled = !(sareeBase64 && personBase64);
+}
+
+async function generate() {
+  if (!sareeBase64 || !personBase64) {
+    showToast('Upload both images first', 'error');
+    return;
+  }
+
+  var model = getSetting('model', 'gemini-2.0-flash-exp');
+  var aspect = getSetting('aspect', '3:4');
+
+  document.getElementById('generateBtn').disabled = true;
+  document.getElementById('generateBtn').style.display = 'none';
+  document.getElementById('tipsBox').style.display = 'none';
+  document.getElementById('errorDetail').classList.remove('show');
+  document.getElementById('loader').classList.add('show');
+  document.getElementById('resultCard').classList.remove('show');
+
+  var startTime = Date.now();
+  var timerEl = document.getElementById('timerText');
+  var timerInterval = setInterval(function() {
+    timerEl.textContent = Math.round((Date.now() - startTime) / 1000) + 's elapsed...';
+  }, 1000);
+
+  try {
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+              model + ':generateContent?key=' + API_KEY;
+
+    var hasBlouse = !!blouseBase64;
+    var prompt = buildPrompt(hasBlouse);
+
+    var imageParts = [
+      { text: prompt },
+      { inline_data: { mime_type: 'image/jpeg', data: sareeBase64 } },
+      { inline_data: { mime_type: 'image/jpeg', data: personBase64 } }
+    ];
+    if (hasBlouse) {
+      imageParts.push({ inline_data: { mime_type: 'image/jpeg', data: blouseBase64 } });
+    }
+
+    var body = {
+      contents: [{ parts: imageParts }],
+      generationConfig: {
+        responseModalities: ['TEXT', 'IMAGE']
+      }
+    };
+
+    if (model !== 'gemini-2.0-flash-exp') {
+      body.generationConfig.imageConfig = { aspectRatio: aspect };
+    }
+
+    var response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    clearInterval(timerInterval);
+
+    var data = await response.json();
+
+    if (!response.ok) {
+      var errMsg = 'API error: ' + response.status;
+      if (data.error && data.error.message) errMsg = data.error.message;
+      throw new Error(errMsg);
+    }
+
+    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+      var parts = data.candidates[0].content.parts;
+      var foundImage = false;
+      var textParts = [];
+
+      for (var i = 0; i < parts.length; i++) {
+        var part = parts[i];
+        if (part.inlineData && part.inlineData.data) {
+          resultBase64 = part.inlineData.data;
+          resultMime = part.inlineData.mimeType || 'image/png';
+          document.getElementById('resultImg').src =
+            'data:' + resultMime + ';base64,' + resultBase64;
+          foundImage = true;
+        }
+        if (part.text) {
+          textParts.push(part.text);
+        }
+      }
+
+      if (textParts.length > 0) {
+        var textEl = document.getElementById('resultText');
+        textEl.textContent = textParts.join('\n');
+        textEl.classList.add('show');
+      } else {
+        document.getElementById('resultText').classList.remove('show');
+      }
+
+      if (foundImage) {
+        document.getElementById('resultCard').classList.add('show');
+        document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        showToast('Draping generated!', 'success');
+      } else if (data.candidates[0].finishReason === 'IMAGE_SAFETY') {
+        throw new Error('Image was blocked by safety filters. Try with different photos.');
+      } else {
+        throw new Error('No image was generated. The model returned text only. Try a different model in Settings.');
+      }
+    } else {
+      var blockReason = '';
+      if (data.promptFeedback && data.promptFeedback.blockReason) {
+        blockReason = ' Reason: ' + data.promptFeedback.blockReason;
+      }
+      throw new Error('Request was blocked or returned no results.' + blockReason);
+    }
+  } catch (err) {
+    clearInterval(timerInterval);
+    console.error(err);
+    var msg = err.message;
+    document.getElementById('errorDetail').textContent = msg;
+    document.getElementById('errorDetail').classList.add('show');
+    if (msg.indexOf('API key') >= 0 || msg.indexOf('API_KEY') >= 0) {
+      showToast('API key issue — key may have expired', 'error');
+    } else if (msg.indexOf('not found') >= 0 || msg.indexOf('404') >= 0) {
+      showToast('Model not available — try a different one in Settings', 'error');
+    } else {
+      showToast('Generation failed — see details below', 'error');
+    }
+  } finally {
+    document.getElementById('generateBtn').disabled = false;
+    document.getElementById('generateBtn').style.display = '';
+    document.getElementById('tipsBox').style.display = '';
+    document.getElementById('loader').classList.remove('show');
+    updateGenerateBtn();
+  }
+}
+
+function generateAgain() {
+  document.getElementById('resultCard').classList.remove('show');
+  generate();
+}
+
+function downloadResult() {
+  if (!resultBase64) { showToast('No image to save', 'error'); return; }
+  var ext = resultMime.indexOf('png') >= 0 ? 'png' : 'jpg';
+  var link = document.createElement('a');
+  link.download = 'saree-tryon-' + Date.now() + '.' + ext;
+  link.href = 'data:' + resultMime + ';base64,' + resultBase64;
+  link.click();
+  showToast('Saved to downloads!', 'success');
+}
+
+async function shareResult() {
+  if (!resultBase64) { downloadResult(); return; }
+  try {
+    var bytes = atob(resultBase64);
+    var arr = new Uint8Array(bytes.length);
+    for (var i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    var blob = new Blob([arr], { type: resultMime });
+    var ext = resultMime.indexOf('png') >= 0 ? 'png' : 'jpg';
+    var file = new File([blob], 'saree-tryon.' + ext, { type: resultMime });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Saree Try-On' });
+    } else {
+      downloadResult();
+    }
+  } catch(e) {
+    downloadResult();
+  }
+}
+
+function toggleSettings() {
+  var panel = document.getElementById('settingsPanel');
+  var overlay = document.getElementById('settingsOverlay');
+  panel.classList.toggle('open');
+  overlay.classList.toggle('open');
+  if (panel.classList.contains('open')) {
+    document.getElementById('modelSelect').value = getSetting('model', 'gemini-2.0-flash-exp');
+    document.getElementById('aspectSelect').value = getSetting('aspect', '3:4');
+  }
+}
+
+var toastTimeout;
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type === 'success' ? ' success' : type === 'error' ? ' error' : '');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(function() { t.classList.remove('show'); }, 3500);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  updateGenerateBtn();
+});
+</script>
+</body>
+</html>
