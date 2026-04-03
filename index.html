@@ -378,8 +378,8 @@ input[type="file"]{display:none}
   </h3>
   <label>Image Model</label>
   <select id="modelSelect" onchange="saveSetting('model',this.value)">
-    <option value="flux">Flux Schnell (Fast)</option>
-    <option value="zimage">Z-Image Turbo (HD)</option>
+    <option value="flux">FLUX.1 Schnell (Fast, Recommended)</option>
+    <option value="sdxl">Stable Diffusion XL (Detailed)</option>
   </select>
   <label>Image Size</label>
   <select id="aspectSelect" onchange="saveSetting('aspect',this.value)">
@@ -399,7 +399,18 @@ input[type="file"]{display:none}
       background:var(--pri);color:#fff;cursor:pointer;white-space:nowrap">Change</button>
   </div>
   <p style="font-size:0.65rem;color:var(--text-muted);margin-bottom:14px;line-height:1.5">
-    Stored only in your browser. Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--pri)">aistudio.google.com/apikey</a></p>
+    Free at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--pri)">aistudio.google.com/apikey</a></p>
+  <label>HuggingFace Token</label>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+    <input type="password" id="hfKeyDisplay" readonly
+      style="flex:1;padding:10px 12px;border:2px solid #E8E0D8;border-radius:12px;font-size:0.82rem;
+      background:var(--card-alt);font-family:inherit;color:var(--text-muted)">
+    <button onclick="changeHFKey()"
+      style="padding:10px 16px;border:none;border-radius:12px;font-size:0.78rem;font-weight:700;
+      background:var(--pri);color:#fff;cursor:pointer;white-space:nowrap">Change</button>
+  </div>
+  <p style="font-size:0.65rem;color:var(--text-muted);margin-bottom:14px;line-height:1.5">
+    Free at <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--pri)">huggingface.co/settings/tokens</a> (sign up free, create token)</p>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -618,48 +629,63 @@ async function generate() {
       imagePrompt = imagePrompt.substring(0, 1500);
     }
 
-    // ── STEP 2: Pollinations generates the image (FREE) ──
+    // ── STEP 2: HuggingFace generates the image (FREE) ──
     setLoaderStatus('Step 2/2 — Creating your look...');
 
-    var cleanPrompt = imagePrompt.replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ').trim();
-    if (cleanPrompt.length > 1200) cleanPrompt = cleanPrompt.substring(0, 1200);
+    var hfToken = getHFToken();
+    if (!hfToken) {
+      hfToken = promptForHFToken();
+      if (!hfToken) throw new Error('HuggingFace token is required for image generation.');
+    }
 
-    var pollUrl = 'https://gen.pollinations.ai/image/' +
-      encodeURIComponent(cleanPrompt) +
-      '?model=' + encodeURIComponent(imgModel) +
-      '&width=' + imgW +
-      '&height=' + imgH +
-      '&nologo=true&seed=' + Math.floor(Math.random() * 999999);
+    var hfModel = (imgModel === 'sdxl')
+      ? 'stabilityai/stable-diffusion-xl-base-1.0'
+      : 'black-forest-labs/FLUX.1-schnell';
 
-    resultImgUrl = pollUrl;
-
-    var pollResp = await fetch(pollUrl);
+    var hfResp = await fetch('https://api-inference.huggingface.co/models/' + hfModel, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + hfToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ inputs: imagePrompt })
+    });
 
     clearInterval(timerInterval);
 
-    if (!pollResp.ok) {
-      var pollErrText = '';
-      try { pollErrText = await pollResp.text(); } catch(e) {}
-      throw new Error('Image generation failed (status ' + pollResp.status + '). ' + pollErrText.substring(0, 200));
+    if (!hfResp.ok) {
+      var hfErr = '';
+      try {
+        var hfErrData = await hfResp.json();
+        hfErr = hfErrData.error || JSON.stringify(hfErrData);
+      } catch(e) { hfErr = 'status ' + hfResp.status; }
+      if (hfResp.status === 401 || hfResp.status === 403) {
+        localStorage.removeItem('sts_hf_token');
+        throw new Error('Invalid HuggingFace token. Tap Generate to enter a new one.');
+      }
+      if (hfErr.indexOf('loading') >= 0 || hfErr.indexOf('currently loading') >= 0) {
+        throw new Error('Model is loading — please wait 30 seconds and try again.');
+      }
+      throw new Error('Image generation failed: ' + hfErr);
     }
 
-    var imgBlob = await pollResp.blob();
+    var imgBlob = await hfResp.blob();
     if (!imgBlob || imgBlob.size < 1000) {
       throw new Error('Image generation returned empty result. Try again.');
     }
 
     resultMime = imgBlob.type || 'image/jpeg';
-    var blobUrl = URL.createObjectURL(imgBlob);
-    document.getElementById('resultImg').src = blobUrl;
+    resultImgUrl = URL.createObjectURL(imgBlob);
+    document.getElementById('resultImg').src = resultImgUrl;
 
-    var reader = new FileReader();
-    reader.onloadend = function() {
-      resultBase64 = reader.result.split(',')[1];
-    };
-    reader.readAsDataURL(imgBlob);
+    resultBase64 = await new Promise(function(resolve) {
+      var reader = new FileReader();
+      reader.onloadend = function() { resolve(reader.result.split(',')[1]); };
+      reader.readAsDataURL(imgBlob);
+    });
 
     var descEl = document.getElementById('resultText');
-    descEl.textContent = 'AI Prompt: ' + cleanPrompt;
+    descEl.textContent = 'AI Prompt: ' + imagePrompt;
     descEl.classList.add('show');
 
     document.getElementById('resultCard').classList.add('show');
@@ -675,9 +701,11 @@ async function generate() {
     if (msg.indexOf('Load failed') >= 0 || msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
       document.getElementById('errorDetail').textContent = msg + ' — Check internet connection and ensure app is hosted via https.';
       showToast('Network error — check connection', 'error');
-    } else if (msg.indexOf('API key') >= 0 || msg.indexOf('API_KEY') >= 0 || msg.indexOf('401') >= 0 || msg.indexOf('403') >= 0) {
+    } else if (msg.indexOf('Invalid HuggingFace') >= 0) {
+      showToast('Bad HF token — tap Generate to re-enter', 'error');
+    } else if (msg.indexOf('API key') >= 0 || msg.indexOf('API_KEY') >= 0 || msg.indexOf('Gemini') >= 0) {
       localStorage.removeItem('sts_gemini_key');
-      showToast('Invalid API key — tap Generate to enter a new one', 'error');
+      showToast('Invalid Gemini key — tap Generate to re-enter', 'error');
     } else if (msg.indexOf('quota') >= 0 || msg.indexOf('Quota') >= 0) {
       showToast('Gemini quota hit — wait a minute and retry', 'error');
     } else {
@@ -740,12 +768,43 @@ async function shareResult() {
   }
 }
 
+function getHFToken() {
+  return localStorage.getItem('sts_hf_token') || '';
+}
+function saveHFToken(token) {
+  localStorage.setItem('sts_hf_token', token.trim());
+}
+function promptForHFToken() {
+  var token = prompt(
+    'One-time setup — HuggingFace token\n\n' +
+    '1. Go to huggingface.co and sign up (free)\n' +
+    '2. Go to Settings → Access Tokens\n' +
+    '3. Create a new token (free)\n' +
+    '4. Paste it here\n\n' +
+    'This is saved only in your browser.'
+  );
+  if (token && token.trim().length > 5) {
+    saveHFToken(token);
+    showToast('HuggingFace token saved!', 'success');
+    return token.trim();
+  }
+  return '';
+}
+
 function changeKey() {
   var newKey = prompt('Enter your new Gemini API key:');
   if (newKey && newKey.trim().length > 10) {
     saveGeminiKey(newKey);
     document.getElementById('keyDisplay').value = maskKey(newKey.trim());
     showToast('API key updated!', 'success');
+  }
+}
+function changeHFKey() {
+  var newKey = prompt('Enter your new HuggingFace token:');
+  if (newKey && newKey.trim().length > 5) {
+    saveHFToken(newKey);
+    document.getElementById('hfKeyDisplay').value = maskKey(newKey.trim());
+    showToast('HuggingFace token updated!', 'success');
   }
 }
 
@@ -763,6 +822,7 @@ function toggleSettings() {
     document.getElementById('modelSelect').value = getSetting('model', 'flux');
     document.getElementById('aspectSelect').value = getSetting('aspect', '768x1024');
     document.getElementById('keyDisplay').value = maskKey(getGeminiKey());
+    document.getElementById('hfKeyDisplay').value = maskKey(getHFToken());
   }
 }
 
