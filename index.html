@@ -618,43 +618,48 @@ async function generate() {
       imagePrompt = imagePrompt.substring(0, 1500);
     }
 
-    // ── STEP 2: Pollinations generates the image (FREE - no key) ──
+    // ── STEP 2: Pollinations generates the image (FREE) ──
     setLoaderStatus('Step 2/2 — Creating your look...');
 
-    var pollUrl = 'https://image.pollinations.ai/prompt/' +
-      encodeURIComponent(imagePrompt) +
+    var cleanPrompt = imagePrompt.replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (cleanPrompt.length > 1200) cleanPrompt = cleanPrompt.substring(0, 1200);
+
+    var pollUrl = 'https://gen.pollinations.ai/image/' +
+      encodeURIComponent(cleanPrompt) +
       '?model=' + encodeURIComponent(imgModel) +
       '&width=' + imgW +
       '&height=' + imgH +
-      '&nologo=true&seed=-1';
+      '&nologo=true&seed=' + Math.floor(Math.random() * 999999);
 
     resultImgUrl = pollUrl;
 
-    var resultImg = document.getElementById('resultImg');
-    resultImg.crossOrigin = 'anonymous';
-
-    await new Promise(function(resolve, reject) {
-      resultImg.onload = function() { resolve(); };
-      resultImg.onerror = function() { reject(new Error('Image generation failed. Try again or switch model in Settings.')); };
-      resultImg.src = pollUrl;
-    });
+    var pollResp = await fetch(pollUrl);
 
     clearInterval(timerInterval);
 
-    try {
-      var c = document.createElement('canvas');
-      c.width = resultImg.naturalWidth;
-      c.height = resultImg.naturalHeight;
-      c.getContext('2d').drawImage(resultImg, 0, 0);
-      var dataUrl = c.toDataURL('image/png');
-      resultBase64 = dataUrl.split(',')[1];
-      resultMime = 'image/png';
-    } catch (e) {
-      resultBase64 = null;
+    if (!pollResp.ok) {
+      var pollErrText = '';
+      try { pollErrText = await pollResp.text(); } catch(e) {}
+      throw new Error('Image generation failed (status ' + pollResp.status + '). ' + pollErrText.substring(0, 200));
     }
 
+    var imgBlob = await pollResp.blob();
+    if (!imgBlob || imgBlob.size < 1000) {
+      throw new Error('Image generation returned empty result. Try again.');
+    }
+
+    resultMime = imgBlob.type || 'image/jpeg';
+    var blobUrl = URL.createObjectURL(imgBlob);
+    document.getElementById('resultImg').src = blobUrl;
+
+    var reader = new FileReader();
+    reader.onloadend = function() {
+      resultBase64 = reader.result.split(',')[1];
+    };
+    reader.readAsDataURL(imgBlob);
+
     var descEl = document.getElementById('resultText');
-    descEl.textContent = 'AI Prompt: ' + imagePrompt;
+    descEl.textContent = 'AI Prompt: ' + cleanPrompt;
     descEl.classList.add('show');
 
     document.getElementById('resultCard').classList.add('show');
