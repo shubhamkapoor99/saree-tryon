@@ -624,11 +624,10 @@ async function generate() {
       formData.append('image', base64ToBlob(blouseBase64, 'image/jpeg'), 'blouse.jpg');
     }
 
-    var headers = { 'Authorization': 'Bearer ' + POLL_KEY };
+    var apiUrl = 'https://gen.pollinations.ai/v1/images/edits?key=' + encodeURIComponent(POLL_KEY);
 
-    var response = await fetch('https://gen.pollinations.ai/v1/images/edits', {
+    var response = await fetch(apiUrl, {
       method: 'POST',
-      headers: headers,
       body: formData
     });
 
@@ -690,8 +689,9 @@ async function generate() {
     var msg = err.message;
     document.getElementById('errorDetail').textContent = msg;
     document.getElementById('errorDetail').classList.add('show');
-    if (msg.indexOf('enter.pollinations') >= 0) {
-      showToast('Free API key needed — see error details', 'error');
+    if (msg.indexOf('Load failed') >= 0 || msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
+      document.getElementById('errorDetail').textContent = msg + ' — This is a network/CORS error. Make sure you have internet and the app is hosted via https:// (not file://).';
+      showToast('Network error — check connection', 'error');
     } else if (msg.indexOf('not found') >= 0 || msg.indexOf('404') >= 0) {
       showToast('Model not available — try a different one in Settings', 'error');
     } else {
