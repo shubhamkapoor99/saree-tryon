@@ -389,15 +389,22 @@ input[type="file"]{display:none}
     <option value="1024x1024">Square 1:1</option>
     <option value="1024x768">Landscape 4:3</option>
   </select>
-  <p style="font-size:0.65rem;color:var(--text-muted);margin-top:4px;line-height:1.5">
-    100% free &mdash; no API key or payment needed.</p>
+  <label style="margin-top:6px">Gemini API Key</label>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+    <input type="password" id="keyDisplay" readonly
+      style="flex:1;padding:10px 12px;border:2px solid #E8E0D8;border-radius:12px;font-size:0.82rem;
+      background:var(--card-alt);font-family:inherit;color:var(--text-muted)">
+    <button onclick="changeKey()"
+      style="padding:10px 16px;border:none;border-radius:12px;font-size:0.78rem;font-weight:700;
+      background:var(--pri);color:#fff;cursor:pointer;white-space:nowrap">Change</button>
+  </div>
+  <p style="font-size:0.65rem;color:var(--text-muted);margin-bottom:14px;line-height:1.5">
+    Stored only in your browser. Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--pri)">aistudio.google.com/apikey</a></p>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-var GEMINI_KEY = 'AIzaSyCpPBmSGBOGqlnvcGolrwnH2XwosC2KbbA';
-
 var sareeBase64 = null;
 var personBase64 = null;
 var blouseBase64 = null;
@@ -410,6 +417,27 @@ function getSetting(key, fallback) {
 }
 function saveSetting(key, val) {
   localStorage.setItem('sts_' + key, val);
+}
+
+function getGeminiKey() {
+  return localStorage.getItem('sts_gemini_key') || '';
+}
+function saveGeminiKey(key) {
+  localStorage.setItem('sts_gemini_key', key.trim());
+}
+function promptForKey() {
+  var key = prompt(
+    'One-time setup!\n\n' +
+    'Enter your free Google Gemini API key.\n' +
+    'Get one at: aistudio.google.com/apikey\n\n' +
+    'This is saved only in your browser — never shared.'
+  );
+  if (key && key.trim().length > 10) {
+    saveGeminiKey(key);
+    showToast('API key saved!', 'success');
+    return key.trim();
+  }
+  return '';
 }
 
 (function migrateStaleModel() {
@@ -502,6 +530,15 @@ async function generate() {
     return;
   }
 
+  var geminiKey = getGeminiKey();
+  if (!geminiKey) {
+    geminiKey = promptForKey();
+    if (!geminiKey) {
+      showToast('API key is required to generate', 'error');
+      return;
+    }
+  }
+
   var imgModel = getSetting('model', 'flux');
   var size = getSetting('aspect', '768x1024');
   var dims = size.split('x');
@@ -554,7 +591,7 @@ async function generate() {
       geminiParts.push({ inline_data: { mime_type: 'image/jpeg', data: blouseBase64 } });
     }
 
-    var geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + GEMINI_KEY;
+    var geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + geminiKey;
 
     var geminiResp = await fetch(geminiUrl, {
       method: 'POST',
@@ -633,6 +670,9 @@ async function generate() {
     if (msg.indexOf('Load failed') >= 0 || msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
       document.getElementById('errorDetail').textContent = msg + ' — Check internet connection and ensure app is hosted via https.';
       showToast('Network error — check connection', 'error');
+    } else if (msg.indexOf('API key') >= 0 || msg.indexOf('API_KEY') >= 0 || msg.indexOf('401') >= 0 || msg.indexOf('403') >= 0) {
+      localStorage.removeItem('sts_gemini_key');
+      showToast('Invalid API key — tap Generate to enter a new one', 'error');
     } else if (msg.indexOf('quota') >= 0 || msg.indexOf('Quota') >= 0) {
       showToast('Gemini quota hit — wait a minute and retry', 'error');
     } else {
@@ -695,6 +735,20 @@ async function shareResult() {
   }
 }
 
+function changeKey() {
+  var newKey = prompt('Enter your new Gemini API key:');
+  if (newKey && newKey.trim().length > 10) {
+    saveGeminiKey(newKey);
+    document.getElementById('keyDisplay').value = maskKey(newKey.trim());
+    showToast('API key updated!', 'success');
+  }
+}
+
+function maskKey(key) {
+  if (!key) return '(not set)';
+  return key.substring(0, 8) + '••••••••' + key.substring(key.length - 4);
+}
+
 function toggleSettings() {
   var panel = document.getElementById('settingsPanel');
   var overlay = document.getElementById('settingsOverlay');
@@ -703,6 +757,7 @@ function toggleSettings() {
   if (panel.classList.contains('open')) {
     document.getElementById('modelSelect').value = getSetting('model', 'flux');
     document.getElementById('aspectSelect').value = getSetting('aspect', '768x1024');
+    document.getElementById('keyDisplay').value = maskKey(getGeminiKey());
   }
 }
 
