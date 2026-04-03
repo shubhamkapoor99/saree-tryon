@@ -376,12 +376,10 @@ input[type="file"]{display:none}
     Settings
     <button onclick="toggleSettings()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted);padding:4px">&times;</button>
   </h3>
-  <label>AI Model</label>
+  <label>Image Model</label>
   <select id="modelSelect" onchange="saveSetting('model',this.value)">
-    <option value="gptimage">GPT Image Mini (Recommended)</option>
-    <option value="wan-image">Wan 2.7 Image</option>
-    <option value="qwen-image">Qwen Image Plus</option>
-    <option value="klein">FLUX.2 Klein</option>
+    <option value="flux">Flux Schnell (Fast)</option>
+    <option value="zimage">Z-Image Turbo (HD)</option>
   </select>
   <label>Image Size</label>
   <select id="aspectSelect" onchange="saveSetting('aspect',this.value)">
@@ -391,95 +389,21 @@ input[type="file"]{display:none}
     <option value="1024x1024">Square 1:1</option>
     <option value="1024x768">Landscape 4:3</option>
   </select>
+  <p style="font-size:0.65rem;color:var(--text-muted);margin-top:4px;line-height:1.5">
+    100% free &mdash; no API key or payment needed.</p>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-function buildPrompt(hasBlouse) {
-  var lines = [];
-
-  lines.push('STRICT IDENTITY-PRESERVING VIRTUAL TRY-ON TASK');
-  lines.push('==============================================');
-  lines.push('');
-  if (hasBlouse) {
-    lines.push('I am providing THREE reference images. You MUST treat them as absolute ground truth.');
-    lines.push('');
-    lines.push('IMAGE 1 (first image): THE SAREE — the exact garment to be draped.');
-    lines.push('IMAGE 2 (second image): THE PERSON — the exact human who must appear in the output.');
-    lines.push('IMAGE 3 (third image): THE BLOUSE — the exact blouse to be worn under the saree.');
-  } else {
-    lines.push('I am providing TWO reference images. You MUST treat them as absolute ground truth.');
-    lines.push('');
-    lines.push('IMAGE 1 (first image): THE SAREE — the exact garment to be draped.');
-    lines.push('IMAGE 2 (second image): THE PERSON — the exact human who must appear in the output.');
-  }
-
-  lines.push('');
-  lines.push('======== PERSON FIDELITY (ZERO DEVIATION ALLOWED) ========');
-  lines.push('The output image MUST be the SAME person from Image 2. This is NOT a "similar looking" person — it must be IDENTICAL:');
-  lines.push('- FACE: Exact same facial structure, jawline, cheekbones, nose shape, eye shape, eye color, eyebrow shape, lip shape, forehead, chin');
-  lines.push('- SKIN: Exact same skin tone, complexion, and skin texture — no lightening, darkening, or smoothing');
-  lines.push('- HAIR: Exact same hairstyle, hair color, hair length, parting, and hair texture');
-  lines.push('- BODY: Exact same body shape, height, proportions, shoulder width, and build');
-  lines.push('- EXPRESSION: Maintain a natural, pleasant expression consistent with the reference');
-  lines.push('- AGE: Same apparent age — do not make the person look younger or older');
-  lines.push('If you cannot perfectly reproduce the person, prioritize the face above all else. The face MUST be recognizable as the same individual.');
-
-  lines.push('');
-  lines.push('======== SAREE DESIGN FIDELITY (ZERO DEVIATION ALLOWED) ========');
-  lines.push('The saree in the output MUST be an EXACT replica of Image 1. This is NOT an "inspired by" design — it must be IDENTICAL:');
-  lines.push('- COLOR: Exact same base color, shade, and tone — no color shifting');
-  lines.push('- PATTERN: Exact same pattern layout, motifs, repeat pattern, and spacing');
-  lines.push('- BORDER: Exact same border design, border width, border color, and border pattern');
-  lines.push('- EMBROIDERY/ZARI: Exact same embroidery motifs, zari work, sequin placement, and thread work');
-  lines.push('- FABRIC TEXTURE: Preserve the fabric appearance — silk sheen, cotton matte, chiffon transparency, georgette flow, etc.');
-  lines.push('- PALLU DESIGN: If the pallu (end piece) has a different design from the body, reproduce that distinction exactly');
-  lines.push('Do NOT simplify, generalize, or reinterpret any design element. Every motif, every color band, every border detail must match.');
-
-  lines.push('');
-  lines.push('======== DRAPING STYLE ========');
-  lines.push('- Traditional Indian "nivi" style draping');
-  lines.push('- Neat pleats (5-7 pleats) at the front, tucked into the waist at center');
-  lines.push('- Pallu (loose end) draped over the LEFT shoulder, falling gracefully behind');
-  lines.push('- Clean tuck and fall along the right side of the legs');
-  lines.push('- The saree should show natural fabric drape, folds, and gravity — not stiff or flat');
-
-  lines.push('');
-  lines.push('======== LAYERING ORDER ========');
-  if (hasBlouse) {
-    lines.push('- The person wears the EXACT blouse from Image 3 underneath');
-    lines.push('- The saree from Image 1 is draped ON TOP of the blouse');
-    lines.push('- Blouse sleeves, neckline, and any visible back portion must match Image 3 exactly');
-    lines.push('- Reproduce the blouse EXACTLY: its color, fabric, embroidery, sleeve length, sleeve style, neckline cut, and any design details');
-    lines.push('- Where the saree does not cover (upper chest, arms, midriff if applicable), the blouse must be clearly visible');
-  } else {
-    lines.push('- Auto-generate a complementary blouse that matches the saree color palette');
-    lines.push('- The blouse style should be a classic round-neck or V-neck with half sleeves');
-    lines.push('- The saree is draped on top of the blouse');
-  }
-
-  lines.push('');
-  lines.push('======== OUTPUT REQUIREMENTS ========');
-  lines.push('- Full-length standing portrait showing head to toe');
-  lines.push('- Slight three-quarter angle pose (natural, not stiff)');
-  lines.push('- Professional soft studio lighting with no harsh shadows');
-  lines.push('- Clean, neutral, solid-color background (white or light gray)');
-  lines.push('- The image must look like a REAL photograph from a professional clothing store photoshoot');
-  lines.push('- Resolution should be sharp and detailed');
-  lines.push('- Absolutely NO watermarks, NO text, NO logos, NO borders, NO frames');
-  lines.push('- NO artistic filters, NO cartoon style, NO painting style — strictly photorealistic');
-
-  return lines.join('\n');
-}
-
-var POLL_KEY = 'sk_l09ZMtrLFwjwH2T9CVq6senkDlxs3BpZ';
+var GEMINI_KEY = 'AIzaSyCpPBmSGBOGqlnvcGolrwnH2XwosC2KbbA';
 
 var sareeBase64 = null;
 var personBase64 = null;
 var blouseBase64 = null;
 var resultBase64 = null;
 var resultMime = 'image/png';
+var resultImgUrl = null;
 
 function getSetting(key, fallback) {
   return localStorage.getItem('sts_' + key) || fallback;
@@ -490,29 +414,10 @@ function saveSetting(key, val) {
 
 (function migrateStaleModel() {
   var m = localStorage.getItem('sts_model');
-  if (m && (m.indexOf('gemini') === 0 || m.indexOf('nano') === 0)) {
+  if (m && (m.indexOf('gemini') === 0 || m.indexOf('nano') === 0 || m.indexOf('gpt') === 0 || m.indexOf('wan') === 0 || m.indexOf('qwen') === 0 || m.indexOf('klein') === 0)) {
     localStorage.removeItem('sts_model');
   }
-  var a = localStorage.getItem('sts_aspect');
-  if (a && a.indexOf(':') >= 0 && a.indexOf('x') < 0) {
-    localStorage.removeItem('sts_aspect');
-  }
 })();
-
-function base64ToBlob(b64, mime) {
-  var bytes = atob(b64);
-  var arr = new Uint8Array(bytes.length);
-  for (var i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-  return new Blob([arr], { type: mime });
-}
-
-function blobToBase64(blob) {
-  return new Promise(function(resolve) {
-    var reader = new FileReader();
-    reader.onloadend = function() { resolve(reader.result.split(',')[1]); };
-    reader.readAsDataURL(blob);
-  });
-}
 
 function compressImage(file, maxDim) {
   maxDim = maxDim || 1024;
@@ -587,14 +492,21 @@ function updateGenerateBtn() {
   document.getElementById('generateBtn').disabled = !(sareeBase64 && personBase64);
 }
 
+function setLoaderStatus(text) {
+  document.getElementById('timerText').textContent = text;
+}
+
 async function generate() {
   if (!sareeBase64 || !personBase64) {
     showToast('Upload both images first', 'error');
     return;
   }
 
-  var model = getSetting('model', 'gptimage');
+  var imgModel = getSetting('model', 'flux');
   var size = getSetting('aspect', '768x1024');
+  var dims = size.split('x');
+  var imgW = parseInt(dims[0]) || 768;
+  var imgH = parseInt(dims[1]) || 1024;
 
   document.getElementById('generateBtn').disabled = true;
   document.getElementById('generateBtn').style.display = 'none';
@@ -606,83 +518,112 @@ async function generate() {
   var startTime = Date.now();
   var timerEl = document.getElementById('timerText');
   var timerInterval = setInterval(function() {
-    timerEl.textContent = Math.round((Date.now() - startTime) / 1000) + 's elapsed...';
+    var sec = Math.round((Date.now() - startTime) / 1000);
+    timerEl.textContent = sec + 's elapsed...';
   }, 1000);
 
   try {
     var hasBlouse = !!blouseBase64;
-    var prompt = buildPrompt(hasBlouse);
 
-    var formData = new FormData();
-    formData.append('prompt', prompt);
-    formData.append('model', model);
-    formData.append('size', size);
+    // ── STEP 1: Gemini analyzes the images (FREE - text model) ──
+    setLoaderStatus('Step 1/2 — Analyzing your images...');
 
-    formData.append('image', base64ToBlob(sareeBase64, 'image/jpeg'), 'saree.jpg');
-    formData.append('image', base64ToBlob(personBase64, 'image/jpeg'), 'person.jpg');
+    var analysisInstructions = [
+      'You are an expert fashion analyst. Analyze the provided images and output a SINGLE image-generation prompt.',
+      '',
+      'Image 1 is a SAREE. Image 2 is a PERSON.' + (hasBlouse ? ' Image 3 is a BLOUSE.' : ''),
+      '',
+      'Create a prompt (max 900 characters) for generating a photorealistic image of this EXACT person wearing this EXACT saree in traditional nivi draping style.',
+      '',
+      'Your prompt MUST include:',
+      '1. PERSON: Describe skin tone, approximate age, hair color/style/length, body build, facial features in detail',
+      '2. SAREE: Describe the EXACT colors (be very specific, e.g. "deep maroon with golden zari border"), pattern type, fabric type (silk/cotton/chiffon etc.), border design, pallu design, any embroidery or motifs',
+      hasBlouse ? '3. BLOUSE: Describe exact blouse color, fabric, sleeve style, neckline, any embroidery — worn under the saree' : '3. BLOUSE: Generate a complementary round-neck half-sleeve blouse matching the saree palette',
+      '4. STYLE: Traditional Indian nivi draping, neat front pleats, pallu over left shoulder, natural fabric folds',
+      '5. SETTING: Full-length standing portrait, professional studio lighting, plain white background, photorealistic, no text/watermarks',
+      '',
+      'Output ONLY the prompt text — no explanations, no markdown, no quotes.'
+    ].join('\n');
+
+    var geminiParts = [
+      { text: analysisInstructions },
+      { inline_data: { mime_type: 'image/jpeg', data: sareeBase64 } },
+      { inline_data: { mime_type: 'image/jpeg', data: personBase64 } }
+    ];
     if (hasBlouse) {
-      formData.append('image', base64ToBlob(blouseBase64, 'image/jpeg'), 'blouse.jpg');
+      geminiParts.push({ inline_data: { mime_type: 'image/jpeg', data: blouseBase64 } });
     }
 
-    var apiUrl = 'https://gen.pollinations.ai/v1/images/edits?key=' + encodeURIComponent(POLL_KEY);
+    var geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + GEMINI_KEY;
 
-    var response = await fetch(apiUrl, {
+    var geminiResp = await fetch(geminiUrl, {
       method: 'POST',
-      body: formData
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: geminiParts }],
+        generationConfig: { maxOutputTokens: 400 }
+      })
+    });
+
+    var geminiData = await geminiResp.json();
+
+    if (!geminiResp.ok) {
+      var gErr = (geminiData.error && geminiData.error.message) ? geminiData.error.message : 'Gemini analysis failed (status ' + geminiResp.status + ')';
+      throw new Error(gErr);
+    }
+
+    if (!geminiData.candidates || !geminiData.candidates[0] || !geminiData.candidates[0].content) {
+      throw new Error('Gemini returned no analysis. Try again.');
+    }
+
+    var imagePrompt = geminiData.candidates[0].content.parts[0].text.trim();
+    if (imagePrompt.length > 1500) {
+      imagePrompt = imagePrompt.substring(0, 1500);
+    }
+
+    // ── STEP 2: Pollinations generates the image (FREE - no key) ──
+    setLoaderStatus('Step 2/2 — Creating your look...');
+
+    var pollUrl = 'https://image.pollinations.ai/prompt/' +
+      encodeURIComponent(imagePrompt) +
+      '?model=' + encodeURIComponent(imgModel) +
+      '&width=' + imgW +
+      '&height=' + imgH +
+      '&nologo=true&seed=-1';
+
+    resultImgUrl = pollUrl;
+
+    var resultImg = document.getElementById('resultImg');
+    resultImg.crossOrigin = 'anonymous';
+
+    await new Promise(function(resolve, reject) {
+      resultImg.onload = function() { resolve(); };
+      resultImg.onerror = function() { reject(new Error('Image generation failed. Try again or switch model in Settings.')); };
+      resultImg.src = pollUrl;
     });
 
     clearInterval(timerInterval);
 
-    if (!response.ok) {
-      var errData;
-      try { errData = await response.json(); } catch(e) { errData = null; }
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('Authentication required. Get a free API key at enter.pollinations.ai and add it in Settings (gear icon).');
-      }
-      var errMsg = 'API error: ' + response.status;
-      if (errData && errData.error) {
-        errMsg = errData.error.message || errData.error;
-      }
-      throw new Error(errMsg);
+    try {
+      var c = document.createElement('canvas');
+      c.width = resultImg.naturalWidth;
+      c.height = resultImg.naturalHeight;
+      c.getContext('2d').drawImage(resultImg, 0, 0);
+      var dataUrl = c.toDataURL('image/png');
+      resultBase64 = dataUrl.split(',')[1];
+      resultMime = 'image/png';
+    } catch (e) {
+      resultBase64 = null;
     }
 
-    var contentType = response.headers.get('content-type') || '';
+    var descEl = document.getElementById('resultText');
+    descEl.textContent = 'AI Prompt: ' + imagePrompt;
+    descEl.classList.add('show');
 
-    if (contentType.indexOf('image/') >= 0) {
-      var imgBlob = await response.blob();
-      resultMime = imgBlob.type || 'image/png';
-      resultBase64 = await blobToBase64(imgBlob);
-      document.getElementById('resultImg').src = 'data:' + resultMime + ';base64,' + resultBase64;
-      document.getElementById('resultText').classList.remove('show');
-      document.getElementById('resultCard').classList.add('show');
-      document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      showToast('Draping generated!', 'success');
-    } else {
-      var data = await response.json();
+    document.getElementById('resultCard').classList.add('show');
+    document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast('Draping generated!', 'success');
 
-      if (data.data && data.data[0]) {
-        var item = data.data[0];
-        if (item.b64_json) {
-          resultBase64 = item.b64_json;
-          resultMime = 'image/png';
-          document.getElementById('resultImg').src = 'data:image/png;base64,' + resultBase64;
-        } else if (item.url) {
-          document.getElementById('resultImg').src = item.url;
-          try {
-            var imgResp = await fetch(item.url);
-            var imgBlob2 = await imgResp.blob();
-            resultMime = imgBlob2.type || 'image/png';
-            resultBase64 = await blobToBase64(imgBlob2);
-          } catch(e) { resultBase64 = null; }
-        }
-        document.getElementById('resultText').classList.remove('show');
-        document.getElementById('resultCard').classList.add('show');
-        document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        showToast('Draping generated!', 'success');
-      } else {
-        throw new Error('No image generated. Try a different model in Settings.');
-      }
-    }
   } catch (err) {
     clearInterval(timerInterval);
     console.error(err);
@@ -690,10 +631,10 @@ async function generate() {
     document.getElementById('errorDetail').textContent = msg;
     document.getElementById('errorDetail').classList.add('show');
     if (msg.indexOf('Load failed') >= 0 || msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
-      document.getElementById('errorDetail').textContent = msg + ' — This is a network/CORS error. Make sure you have internet and the app is hosted via https:// (not file://).';
+      document.getElementById('errorDetail').textContent = msg + ' — Check internet connection and ensure app is hosted via https.';
       showToast('Network error — check connection', 'error');
-    } else if (msg.indexOf('not found') >= 0 || msg.indexOf('404') >= 0) {
-      showToast('Model not available — try a different one in Settings', 'error');
+    } else if (msg.indexOf('quota') >= 0 || msg.indexOf('Quota') >= 0) {
+      showToast('Gemini quota hit — wait a minute and retry', 'error');
     } else {
       showToast('Generation failed — see details below', 'error');
     }
@@ -712,30 +653,44 @@ function generateAgain() {
 }
 
 function downloadResult() {
-  if (!resultBase64) { showToast('No image to save', 'error'); return; }
-  var ext = resultMime.indexOf('png') >= 0 ? 'png' : 'jpg';
-  var link = document.createElement('a');
-  link.download = 'saree-tryon-' + Date.now() + '.' + ext;
-  link.href = 'data:' + resultMime + ';base64,' + resultBase64;
-  link.click();
-  showToast('Saved to downloads!', 'success');
+  if (resultBase64) {
+    var ext = resultMime.indexOf('png') >= 0 ? 'png' : 'jpg';
+    var link = document.createElement('a');
+    link.download = 'saree-tryon-' + Date.now() + '.' + ext;
+    link.href = 'data:' + resultMime + ';base64,' + resultBase64;
+    link.click();
+    showToast('Saved to downloads!', 'success');
+  } else if (resultImgUrl) {
+    var link2 = document.createElement('a');
+    link2.href = resultImgUrl;
+    link2.target = '_blank';
+    link2.click();
+    showToast('Opened in new tab — long-press to save', 'success');
+  } else {
+    showToast('No image to save', 'error');
+  }
 }
 
 async function shareResult() {
-  if (!resultBase64) { downloadResult(); return; }
+  if (!resultBase64 && !resultImgUrl) { showToast('No image to share', 'error'); return; }
   try {
-    var bytes = atob(resultBase64);
-    var arr = new Uint8Array(bytes.length);
-    for (var i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-    var blob = new Blob([arr], { type: resultMime });
-    var ext = resultMime.indexOf('png') >= 0 ? 'png' : 'jpg';
-    var file = new File([blob], 'saree-tryon.' + ext, { type: resultMime });
+    var blob;
+    if (resultBase64) {
+      var bytes = atob(resultBase64);
+      var arr = new Uint8Array(bytes.length);
+      for (var i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      blob = new Blob([arr], { type: resultMime });
+    } else {
+      var resp = await fetch(resultImgUrl);
+      blob = await resp.blob();
+    }
+    var file = new File([blob], 'saree-tryon.png', { type: 'image/png' });
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title: 'Saree Try-On' });
     } else {
       downloadResult();
     }
-  } catch(e) {
+  } catch (e) {
     downloadResult();
   }
 }
@@ -746,7 +701,7 @@ function toggleSettings() {
   panel.classList.toggle('open');
   overlay.classList.toggle('open');
   if (panel.classList.contains('open')) {
-    document.getElementById('modelSelect').value = getSetting('model', 'gptimage');
+    document.getElementById('modelSelect').value = getSetting('model', 'flux');
     document.getElementById('aspectSelect').value = getSetting('aspect', '768x1024');
   }
 }
