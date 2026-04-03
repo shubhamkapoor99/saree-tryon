@@ -247,7 +247,7 @@ input[type="file"]{display:none}
 
 <header>
   <div class="header-title">Saree Try-On <span>Studio</span></div>
-  <div class="header-sub">AI-powered virtual draping for your shop</div>
+  <div class="header-sub">Free AI-powered virtual draping for your shop</div>
 </header>
 
 <div class="container">
@@ -376,20 +376,28 @@ input[type="file"]{display:none}
     Settings
     <button onclick="toggleSettings()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted);padding:4px">&times;</button>
   </h3>
-  <label>Gemini Model</label>
+  <label>AI Model</label>
   <select id="modelSelect" onchange="saveSetting('model',this.value)">
-    <option value="gemini-2.5-flash-image">Nano Banana — 2.5 Flash (Stable)</option>
-    <option value="gemini-3.1-flash-image-preview">Nano Banana 2 — 3.1 Flash (Latest)</option>
-    <option value="gemini-3-pro-image-preview">Nano Banana Pro (Best Quality)</option>
+    <option value="gptimage">GPT Image Mini (Recommended)</option>
+    <option value="wan-image">Wan 2.7 Image</option>
+    <option value="qwen-image">Qwen Image Plus</option>
+    <option value="klein">FLUX.2 Klein</option>
   </select>
-  <label>Aspect Ratio</label>
+  <label>Image Size</label>
   <select id="aspectSelect" onchange="saveSetting('aspect',this.value)">
-    <option value="3:4">Portrait 3:4 (Recommended)</option>
-    <option value="2:3">Portrait 2:3 (Taller)</option>
-    <option value="9:16">Portrait 9:16 (Phone Screen)</option>
-    <option value="1:1">Square 1:1</option>
-    <option value="4:3">Landscape 4:3</option>
+    <option value="768x1024">Portrait 3:4 (Recommended)</option>
+    <option value="682x1024">Portrait 2:3 (Taller)</option>
+    <option value="576x1024">Portrait 9:16 (Phone Screen)</option>
+    <option value="1024x1024">Square 1:1</option>
+    <option value="1024x768">Landscape 4:3</option>
   </select>
+  <label style="margin-top:6px">Pollinations API Key <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
+  <input type="text" id="pollKeyInput" placeholder="pk_... (get free at enter.pollinations.ai)"
+    style="width:100%;padding:12px;border:2px solid #E8E0D8;border-radius:12px;font-size:0.82rem;
+    margin-bottom:6px;background:var(--card-alt);font-family:inherit;color:var(--text)"
+    onchange="saveSetting('pollkey',this.value.trim())">
+  <p style="font-size:0.65rem;color:var(--text-muted);margin-bottom:14px;line-height:1.5">
+    Works without a key. Add one only if you hit rate limits.</p>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -472,8 +480,6 @@ function buildPrompt(hasBlouse) {
   return lines.join('\n');
 }
 
-var API_KEY = 'AIzaSyCpPBmSGBOGqlnvcGolrwnH2XwosC2KbbA';
-
 var sareeBase64 = null;
 var personBase64 = null;
 var blouseBase64 = null;
@@ -489,10 +495,29 @@ function saveSetting(key, val) {
 
 (function migrateStaleModel() {
   var m = localStorage.getItem('sts_model');
-  if (m && m.indexOf('gemini-2.0') === 0) {
+  if (m && (m.indexOf('gemini') === 0 || m.indexOf('nano') === 0)) {
     localStorage.removeItem('sts_model');
   }
+  var a = localStorage.getItem('sts_aspect');
+  if (a && a.indexOf(':') >= 0 && a.indexOf('x') < 0) {
+    localStorage.removeItem('sts_aspect');
+  }
 })();
+
+function base64ToBlob(b64, mime) {
+  var bytes = atob(b64);
+  var arr = new Uint8Array(bytes.length);
+  for (var i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+function blobToBase64(blob) {
+  return new Promise(function(resolve) {
+    var reader = new FileReader();
+    reader.onloadend = function() { resolve(reader.result.split(',')[1]); };
+    reader.readAsDataURL(blob);
+  });
+}
 
 function compressImage(file, maxDim) {
   maxDim = maxDim || 1024;
@@ -573,8 +598,8 @@ async function generate() {
     return;
   }
 
-  var model = getSetting('model', 'gemini-2.5-flash-image');
-  var aspect = getSetting('aspect', '3:4');
+  var model = getSetting('model', 'gptimage');
+  var size = getSetting('aspect', '768x1024');
 
   document.getElementById('generateBtn').disabled = true;
   document.getElementById('generateBtn').style.display = 'none';
@@ -590,90 +615,83 @@ async function generate() {
   }, 1000);
 
   try {
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-              model + ':generateContent?key=' + API_KEY;
-
     var hasBlouse = !!blouseBase64;
     var prompt = buildPrompt(hasBlouse);
 
-    var imageParts = [
-      { text: prompt },
-      { inline_data: { mime_type: 'image/jpeg', data: sareeBase64 } },
-      { inline_data: { mime_type: 'image/jpeg', data: personBase64 } }
-    ];
+    var formData = new FormData();
+    formData.append('prompt', prompt);
+    formData.append('model', model);
+    formData.append('size', size);
+
+    formData.append('image', base64ToBlob(sareeBase64, 'image/jpeg'), 'saree.jpg');
+    formData.append('image', base64ToBlob(personBase64, 'image/jpeg'), 'person.jpg');
     if (hasBlouse) {
-      imageParts.push({ inline_data: { mime_type: 'image/jpeg', data: blouseBase64 } });
+      formData.append('image', base64ToBlob(blouseBase64, 'image/jpeg'), 'blouse.jpg');
     }
 
-    var body = {
-      contents: [{ parts: imageParts }],
-      generationConfig: {
-        responseModalities: ['TEXT', 'IMAGE']
-      }
-    };
-
-    if (model !== 'gemini-2.5-flash-image') {
-      body.generationConfig.imageConfig = { aspectRatio: aspect };
+    var headers = {};
+    var apiKey = getSetting('pollkey', '');
+    if (apiKey) {
+      headers['Authorization'] = 'Bearer ' + apiKey;
     }
 
-    var response = await fetch(url, {
+    var response = await fetch('https://gen.pollinations.ai/v1/images/edits', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      headers: headers,
+      body: formData
     });
 
     clearInterval(timerInterval);
 
-    var data = await response.json();
-
     if (!response.ok) {
+      var errData;
+      try { errData = await response.json(); } catch(e) { errData = null; }
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('Authentication required. Get a free API key at enter.pollinations.ai and add it in Settings (gear icon).');
+      }
       var errMsg = 'API error: ' + response.status;
-      if (data.error && data.error.message) errMsg = data.error.message;
+      if (errData && errData.error) {
+        errMsg = errData.error.message || errData.error;
+      }
       throw new Error(errMsg);
     }
 
-    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-      var parts = data.candidates[0].content.parts;
-      var foundImage = false;
-      var textParts = [];
+    var contentType = response.headers.get('content-type') || '';
 
-      for (var i = 0; i < parts.length; i++) {
-        var part = parts[i];
-        if (part.inlineData && part.inlineData.data) {
-          resultBase64 = part.inlineData.data;
-          resultMime = part.inlineData.mimeType || 'image/png';
-          document.getElementById('resultImg').src =
-            'data:' + resultMime + ';base64,' + resultBase64;
-          foundImage = true;
-        }
-        if (part.text) {
-          textParts.push(part.text);
-        }
-      }
+    if (contentType.indexOf('image/') >= 0) {
+      var imgBlob = await response.blob();
+      resultMime = imgBlob.type || 'image/png';
+      resultBase64 = await blobToBase64(imgBlob);
+      document.getElementById('resultImg').src = 'data:' + resultMime + ';base64,' + resultBase64;
+      document.getElementById('resultText').classList.remove('show');
+      document.getElementById('resultCard').classList.add('show');
+      document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showToast('Draping generated!', 'success');
+    } else {
+      var data = await response.json();
 
-      if (textParts.length > 0) {
-        var textEl = document.getElementById('resultText');
-        textEl.textContent = textParts.join('\n');
-        textEl.classList.add('show');
-      } else {
+      if (data.data && data.data[0]) {
+        var item = data.data[0];
+        if (item.b64_json) {
+          resultBase64 = item.b64_json;
+          resultMime = 'image/png';
+          document.getElementById('resultImg').src = 'data:image/png;base64,' + resultBase64;
+        } else if (item.url) {
+          document.getElementById('resultImg').src = item.url;
+          try {
+            var imgResp = await fetch(item.url);
+            var imgBlob2 = await imgResp.blob();
+            resultMime = imgBlob2.type || 'image/png';
+            resultBase64 = await blobToBase64(imgBlob2);
+          } catch(e) { resultBase64 = null; }
+        }
         document.getElementById('resultText').classList.remove('show');
-      }
-
-      if (foundImage) {
         document.getElementById('resultCard').classList.add('show');
         document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
         showToast('Draping generated!', 'success');
-      } else if (data.candidates[0].finishReason === 'IMAGE_SAFETY') {
-        throw new Error('Image was blocked by safety filters. Try with different photos.');
       } else {
-        throw new Error('No image was generated. The model returned text only. Try a different model in Settings.');
+        throw new Error('No image generated. Try a different model in Settings.');
       }
-    } else {
-      var blockReason = '';
-      if (data.promptFeedback && data.promptFeedback.blockReason) {
-        blockReason = ' Reason: ' + data.promptFeedback.blockReason;
-      }
-      throw new Error('Request was blocked or returned no results.' + blockReason);
     }
   } catch (err) {
     clearInterval(timerInterval);
@@ -681,8 +699,8 @@ async function generate() {
     var msg = err.message;
     document.getElementById('errorDetail').textContent = msg;
     document.getElementById('errorDetail').classList.add('show');
-    if (msg.indexOf('API key') >= 0 || msg.indexOf('API_KEY') >= 0) {
-      showToast('API key issue — key may have expired', 'error');
+    if (msg.indexOf('enter.pollinations') >= 0) {
+      showToast('Free API key needed — see error details', 'error');
     } else if (msg.indexOf('not found') >= 0 || msg.indexOf('404') >= 0) {
       showToast('Model not available — try a different one in Settings', 'error');
     } else {
@@ -737,8 +755,9 @@ function toggleSettings() {
   panel.classList.toggle('open');
   overlay.classList.toggle('open');
   if (panel.classList.contains('open')) {
-    document.getElementById('modelSelect').value = getSetting('model', 'gemini-2.5-flash-image');
-    document.getElementById('aspectSelect').value = getSetting('aspect', '3:4');
+    document.getElementById('modelSelect').value = getSetting('model', 'gptimage');
+    document.getElementById('aspectSelect').value = getSetting('aspect', '768x1024');
+    document.getElementById('pollKeyInput').value = getSetting('pollkey', '');
   }
 }
 
